@@ -164,4 +164,3 @@ if __name__ == "__main__":
         protagonist.draw(screen)
         pygame.display.flip()
         clock.tick(60)
-
