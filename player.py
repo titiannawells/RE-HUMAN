@@ -84,48 +84,50 @@ class SolitaryPlayer:
         # FIXED INDENTATION: Moved return outside the loop so it slices all rows
         return idle_pool, walk_pool
     
-    def update(self):
+    # FIXED: Added wall_rects parameter to accept the map data from main.py
+    def update(self, wall_rects):
+        # Handles keyboard tracking inputs and blocks movement into wall colliders 
         keys = pygame.key.get_pressed()
-        now = pygame.time.get_ticks()   # Checks current time on the stopwatch
-
-        direction = pygame.math.Vector2(0, 0)
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            direction.x = -1
-            self.current_dir = "left"
-        # FIXED TYPO: Changed pygame.K_UP to pygame.K_RIGHT for right movement
-        elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            direction.x = 1
-            self.current_dir = "right"
-        elif keys[pygame.K_w] or keys[pygame.K_UP]:
-            direction.y = -1
-            self.current_dir = "up"
-        elif keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            direction.y = 1
-            self.current_dir = "down"
+        now = pygame.time.get_ticks()
         
-        # Move to player's position coordinates when a key is being held down
-        if direction.length() > 0:
+        # Calculate individual step movement increments
+        move_x = 0
+        move_y = 0
+
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:  move_x = -self.speed; self.current_dir = "left"
+        elif keys[pygame.K_d] or keys[pygame.K_RIGHT]: move_x = self.speed;  self.current_dir = "right"
+        elif keys[pygame.K_w] or keys[pygame.K_UP]:    move_y = -self.speed; self.current_dir = "up"
+        elif keys[pygame.K_s] or keys[pygame.K_DOWN]:  move_y = self.speed;  self.current_dir = "down"
+
+        if move_x != 0 or move_y != 0:
             self.is_moving = True
-            self.pos += direction * self.speed
+            
+            # 1. HORIZONTAL AXIS PHYSICS STEP
+            self.pos.x += move_x
+            self.rect.x = int(self.pos.x)
+            for wall in wall_rects:
+                if self.rect.colliderect(wall):
+                    if move_x > 0: self.rect.right = wall.left
+                    if move_x < 0: self.rect.left = wall.right
+                    self.pos.x = self.rect.x
 
-            # Prevents the player from walking off the screen
-            if self.pos.x < 0: self.pos.x = 0
-            elif self.pos.x > self.screen_width - self.rect.width: self.pos.x = self.screen_width - self.rect.width
-            if self.pos.y < 0: self.pos.y = 0
-            elif self.pos.y > self.screen_height - self.rect.height: self.pos.y = self.screen_height - self.rect.height
-
-            # Moves the physical hit-box rectangle to match our new position coordinates
-            self.rect.topleft = (self.pos.x, self.pos.y)
+            # 2. VERTICAL AXIS PHYSICS STEP
+            self.pos.y += move_y
+            self.rect.y = int(self.pos.y)
+            for wall in wall_rects:
+                if self.rect.colliderect(wall):
+                    if move_y > 0: self.rect.bottom = wall.top
+                    if move_y < 0: self.rect.top = wall.bottom
+                    self.pos.y = self.rect.y
         else:
             self.is_moving = False
-        
-        # Chooses timer cooldown dynamically based on active status state
-        active_cooldown = self.walk_cooldown if self.is_moving else self.idle_cooldown
 
-        # Checks if enough time has passed to switch to the next animation frame
+        # Cycle animation frame tracks
+        active_cooldown = self.walk_cooldown if self.is_moving else self.idle_cooldown
         if now - self.last_update >= active_cooldown:
             self.last_update = now
-            self.current_frame += 1
+            self.current_frame = (self.current_frame + 1) % 4
+
             
             # Both sheets have exactly 4 frames (0, 1, 2, 3), so it restarts at 0 after frame 3
             if self.current_frame >= 4:
