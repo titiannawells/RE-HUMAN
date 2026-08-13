@@ -20,6 +20,11 @@ class GameEngine:
 
         # Global Application State Manager ("MENU", "GAME", "SETTINGS", "CREDITS")
         self.state = "MENU"
+        # Psychological state engine values
+        self.sanity = 100.0        # Player stability percentage
+        self.panic_level = 0       # Current hallucination tier (0 to 3)
+        self.sanity_font = pygame.font.SysFont("Courier New", 18, bold=True)
+
 
         # Initialize environment and spawn player on an open corridor floor tile
         self.level_env = Environment()
@@ -62,11 +67,26 @@ class GameEngine:
                         self.state = "MENU"
 
             # =====================================================================
-            # 2. RUNTIME PHYSICS AND UPDATE STEP
+            # 2. RUNTIME PHYSICS AND PSYCHOLOGICAL STATE ENGINE
             # =====================================================================
             if self.state == "GAME":
-                # Only update player physics vectors when actively inside the game map
+                # Process player tile collision tracking physics
                 self.player.update(self.level_env.wall_rects)
+                
+                # Gradually decay sanity over real-time milliseconds as they wander the maze
+                # Drains roughly 1% every 2 seconds spent in the dark
+                self.sanity = max(0.0, self.sanity - 0.015)
+                
+                # Check anxiety thresholds to advance panic/hallucination tiers
+                if self.sanity < 30:
+                    self.panic_level = 3  # Severe visual distortions imminent
+                elif self.sanity < 60:
+                    self.panic_level = 2  # Mild panic whispers active
+                elif self.sanity < 85:
+                    self.panic_level = 1  # Standard discomfort
+                else:
+                    self.panic_level = 0
+
 
             # =====================================================================
             # 3. GRAPHICS PAINT LAYER MANAGER
@@ -82,6 +102,14 @@ class GameEngine:
                 self.screen.fill((0, 0, 0))
                 self.level_env.draw(self.screen)
                 self.player.draw(self.screen)
+                # Render Stability Interface Text elements in the screen corner
+                sanity_text = f"STABILITY MATRIX: {int(self.sanity)}%"
+                # Switch color scheme from calm green to intense crimson as panic climbs
+                ui_color = (100, 255, 100) if self.sanity > 50 else (255, 60, 60)
+                
+                sanity_surf = self.sanity_font.render(sanity_text, True, ui_color)
+                self.screen.blit(sanity_surf, (20, 20))
+
 
                 # Listen for Emergency Escape Key to slide cleanly back to menu loop
                 keys = pygame.key.get_pressed()
